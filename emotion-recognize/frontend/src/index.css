@@ -1,0 +1,59 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
+
+:root {
+  --bg-main: #f4f9ff;
+  --bg-soft: #e7f1ff;
+  --surface: rgba(255, 255, 255, 0.86);
+  --surface-solid: #ffffff;
+  --line: rgba(27, 99, 195, 0.16);
+  --line-strong: rgba(27, 99, 195, 0.3);
+  --text-main: #11315d;
+  --text-soft: #476792;
+  --accent: #2b73e0;
+  --accent-strong: #185fd0;
+  --danger: #cf3f58;
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --shadow-soft: 0 12px 32px rgba(38, 95, 177, 0.12);
+  --shadow-focus: 0 0 0 3px rgba(43, 115, 224, 0.18);
+
+  font-family: "Manrope", "Segoe UI", Tahoma, sans-serif;
+  line-height: 1.5;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+:root[data-theme="dark"] {
+  --bg-main: #081425;
+  --bg-soft: #0e223e;
+  --surface: rgba(14, 29, 52, 0.82);
+  --surface-solid: #10233e;
+  --line: rgba(141, 182, 255, 0.2);
+  --line-strong: rgba(141, 182, 255, 0.42);
+  --text-main: #e7f0ff;
+  --text-soft: #9db8de;
+  --accent: #5aa1ff;
+  --accent-strong: #3e87ef;
+  --danger: #ff7a92;
+  --shadow-soft: 0 14px 36px rgba(0, 8, 20, 0.45);
+  --shadow-focus: 0 0 0 3px rgba(90, 161, 255, 0.28);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 100%;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 8% 10%, rgba(58, 130, 246, 0.24) 0, transparent 34%),
+    radial-gradient(circle at 92% 6%, rgba(95, 168, 255, 0.28) 0, transparent 30%),
+    linear-gradient(145deg, var(--bg-main) 0%, var(--surface-solid) 45%, var(--bg-soft) 100%);
+  color: var(--text-main);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+

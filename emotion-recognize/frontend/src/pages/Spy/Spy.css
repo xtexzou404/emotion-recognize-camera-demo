@@ -1,0 +1,50 @@
+.spy-page {
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 24px;
+}
+
+.title-spy {
+  font-weight: 800;
+  color: var(--text-main);
+  min-height: 7vh;
+  margin: 32px 32px 18px 320px;
+  padding: 18px 28px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: linear-gradient(160deg, var(--surface-solid), var(--surface));
+  box-shadow: var(--shadow-soft);
+  font-size: 1.4rem;
+}
+
+.title-spy p {
+  margin: 0;
+}
+
+@media (max-width: 1200px) {
+  .title-spy {
+    margin: 20px 20px 20px 288px;
+  }
+}
+
+@media (max-width: 900px) {
+  .title-spy {
+    margin: 20px 16px;
+    padding: 16px 18px;
+    font-size: 1.16rem;
+  }
+}
+
+.spy-page::-webkit-scrollbar {
+  width: 10px;
+}
+
+.spy-page::-webkit-scrollbar-thumb {
+  background: rgba(43, 115, 224, 0.35);
+  border-radius: 8px;
+}
+
+.spy-page::-webkit-scrollbar-track {
+  background: rgba(43, 115, 224, 0.1);
+}

@@ -1,0 +1,148 @@
+.settings-page {
+  min-height: 100vh;
+}
+
+.title-settings {
+  font-weight: 800;
+  color: var(--text-main);
+  min-height: 7vh;
+  margin: 32px 32px 18px 320px;
+  padding: 18px 28px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: linear-gradient(160deg, var(--surface-solid), var(--surface));
+  box-shadow: var(--shadow-soft);
+  font-size: 1.4rem;
+}
+
+.title-settings p {
+  margin: 0;
+}
+
+.settings-content {
+  margin: 0 32px 16px 320px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.settings-card {
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text-main);
+  box-shadow: var(--shadow-soft);
+}
+
+.settings-card h3 {
+  margin: 0 0 14px;
+  font-size: 1.04rem;
+  font-weight: 800;
+}
+
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--text-soft);
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.settings-field input,
+.settings-field select {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-solid);
+  color: var(--text-main);
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.settings-field input:focus,
+.settings-field select:focus {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-focus);
+}
+
+.settings-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.settings-actions {
+  margin: 0 32px 32px 320px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-save-btn,
+.settings-danger-btn {
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  cursor: pointer;
+  color: #fff;
+  font-weight: 700;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.settings-save-btn {
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+}
+
+.settings-danger-btn {
+  margin-top: 10px;
+  background: linear-gradient(135deg, #dd5870, #c43c55);
+}
+
+.settings-save-btn:hover,
+.settings-danger-btn:hover {
+  transform: translateY(-1px);
+}
+
+.settings-saved {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+@media (max-width: 1200px) {
+  .title-settings,
+  .settings-content,
+  .settings-actions {
+    margin-left: 288px;
+    margin-right: 20px;
+  }
+
+  .settings-content {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .title-settings {
+    margin: 20px 16px;
+    padding: 16px 18px;
+    font-size: 1.16rem;
+  }
+
+  .settings-content {
+    margin: 0 16px 14px;
+    grid-template-columns: 1fr;
+  }
+
+  .settings-actions {
+    margin: 0 16px 22px;
+  }
+}

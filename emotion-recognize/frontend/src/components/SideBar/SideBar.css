@@ -1,0 +1,131 @@
+.side-bar {
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  align-items: stretch;
+  padding: 22px;
+  margin: 32px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: linear-gradient(150deg, var(--surface-solid), var(--surface));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft);
+}
+
+.side-bar ul {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.side-bar li {
+  list-style: none;
+  margin: 0 0 8px 0;
+  text-align: left;
+  font-size: 0.98rem;
+  letter-spacing: 0.2px;
+}
+
+.side-bar hr {
+  width: 100%;
+  border: none;
+  height: 1px;
+  background-color: var(--line);
+  margin: 0 0 18px 0;
+}
+
+.title-side {
+  font-weight: 800;
+  color: var(--text-main);
+  font-size: 1.2rem;
+}
+
+.title-side p {
+  margin: 0 0 14px 0;
+}
+
+.side-link {
+  display: block;
+  text-decoration: none;
+  color: var(--text-soft);
+  border-radius: 10px;
+  padding: 10px 12px;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.side-link:hover {
+  color: var(--accent);
+  background: rgba(43, 115, 224, 0.1);
+  transform: translateX(2px);
+}
+
+.side-link--active {
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  box-shadow: 0 8px 20px rgba(43, 115, 224, 0.25);
+}
+
+.theme-toggle-btn {
+  margin-top: auto;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-solid);
+  color: var(--text-main);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .side-bar {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 16px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+  }
+
+  .side-bar ul {
+    display: flex;
+    gap: 8px;
+    width: auto;
+    flex-wrap: wrap;
+  }
+
+  .side-bar li {
+    margin: 0;
+  }
+
+  .side-bar hr {
+    display: none;
+  }
+
+  .title-side {
+    font-size: 1rem;
+  }
+
+  .side-link {
+    padding: 8px 10px;
+  }
+
+  .theme-toggle-btn {
+    margin-top: 0;
+    margin-left: 8px;
+    padding: 8px 10px;
+  }
+}
