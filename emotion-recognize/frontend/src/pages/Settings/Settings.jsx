@@ -41,6 +41,13 @@ const Settings = () => {
     navigate("/");
   };
 
+  const toggleDetectorSetting = (key) => (event) => {
+    setDetectorSettings((prev) => ({
+      ...prev,
+      [key]: event.target.checked,
+    }));
+  };
+
   return (
     <div className="settings-page">
       <div className="title-settings">
@@ -113,32 +120,50 @@ const Settings = () => {
 
         <article className="settings-card">
           <h3>Распознавание</h3>
+
           <label className="settings-check">
             <input
               type="checkbox"
               checked={detectorSettings.drawBoxes}
-              onChange={(e) =>
-                setDetectorSettings((prev) => ({
-                  ...prev,
-                  drawBoxes: e.target.checked,
-                }))
-              }
+              onChange={toggleDetectorSetting("drawBoxes")}
             />
-            Показывать рамки лиц
+            Показывать контур лица и подписи.
           </label>
 
           <label className="settings-check">
             <input
               type="checkbox"
               checked={detectorSettings.showEmotionText}
-              onChange={(e) =>
-                setDetectorSettings((prev) => ({
-                  ...prev,
-                  showEmotionText: e.target.checked,
-                }))
-              }
+              onChange={toggleDetectorSetting("showEmotionText")}
             />
-            Показывать подпись эмоции
+            Показывать информационный overlay.
+          </label>
+
+          <label className="settings-check">
+            <input
+              type="checkbox"
+              checked={detectorSettings.showPerformance}
+              onChange={toggleDetectorSetting("showPerformance")}
+            />
+            Показывать FPS и задержку.
+          </label>
+
+          <label className="settings-check">
+            <input
+              type="checkbox"
+              checked={detectorSettings.showGender}
+              onChange={toggleDetectorSetting("showGender")}
+            />
+            Показывать пол.
+          </label>
+
+          <label className="settings-check">
+            <input
+              type="checkbox"
+              checked={detectorSettings.showAge}
+              onChange={toggleDetectorSetting("showAge")}
+            />
+            Показывать возраст.
           </label>
 
           <label className="settings-field">
@@ -147,9 +172,9 @@ const Settings = () => {
               value={detectorSettings.sensitivity}
               onChange={(e) => setDetectorSettings((prev) => ({ ...prev, sensitivity: e.target.value }))}
             >
-              <option value="fast">Быстро (меньше точность)</option>
+              <option value="fast">Быстро (выше FPS)</option>
               <option value="balanced">Сбалансировано</option>
-              <option value="accurate">Точно (медленнее)</option>
+              <option value="accurate">Точно (ниже FPS)</option>
             </select>
           </label>
         </article>
