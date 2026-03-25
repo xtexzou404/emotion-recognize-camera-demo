@@ -23,29 +23,34 @@ const EMOTION_LABELS = {
   surprised: "Удивление",
 };
 
+const GENDER_LABELS = {
+  male: "Мужчина",
+  female: "Женщина",
+};
+
 const SENSITIVITY_PROFILES = {
   fast: {
     tinyFast: { inputSize: 224, scoreThreshold: 0.55 },
     tinyFar: { inputSize: 416, scoreThreshold: 0.3 },
-    fastTickMs: 260,
-    farTickMs: 700,
-    ssdEvery: 5,
+    fastTickMs: 220,
+    farTickMs: 560,
+    ssdEvery: 6,
     label: "Быстро",
   },
   balanced: {
     tinyFast: { inputSize: 320, scoreThreshold: 0.42 },
     tinyFar: { inputSize: 608, scoreThreshold: 0.2 },
-    fastTickMs: 380,
-    farTickMs: 900,
-    ssdEvery: 3,
+    fastTickMs: 300,
+    farTickMs: 760,
+    ssdEvery: 4,
     label: "Сбалансировано",
   },
   accurate: {
     tinyFast: { inputSize: 416, scoreThreshold: 0.35 },
     tinyFar: { inputSize: 608, scoreThreshold: 0.16 },
-    fastTickMs: 520,
-    farTickMs: 1200,
-    ssdEvery: 1,
+    fastTickMs: 430,
+    farTickMs: 980,
+    ssdEvery: 2,
     label: "Точно",
   },
 };
@@ -57,6 +62,10 @@ const SSD_OPTIONS = new faceapi.SsdMobilenetv1Options({
 
 const FAR_MODE_AFTER_MISSES = 3;
 const IOU_THRESHOLD = 0.45;
+const LANDMARK_MODEL_MISSING_WARNING =
+  "Модель ключевых точек лица не найдена. Используется мягкий контур вместо сетки точек.";
+const PERF_UI_UPDATE_MS = 300;
+const AGE_GENDER_EVERY = 4;
 
 const getDominantEmotion = (expressions) => {
   const entries = Object.entries(expressions || {});
@@ -71,6 +80,9 @@ const getDominantEmotion = (expressions) => {
     score,
   };
 };
+
+const getGenderLabel = (gender) => GENDER_LABELS[gender] || "Пол не определён";
+const getAgeLabel = (age) => (typeof age === "number" && Number.isFinite(age) ? `${Math.round(age)} лет` : "");
 
 const clearCanvas = (canvas) => {
   const ctx = canvas.getContext("2d");
@@ -105,6 +117,7 @@ const mergeDetections = (primary, secondary) => {
     const alreadyExists = merged.some(
       (existing) => getIoU(existing.detection.box, candidateBox) > IOU_THRESHOLD
     );
+
     if (!alreadyExists) {
       merged.push(candidate);
     }
@@ -113,32 +126,126 @@ const mergeDetections = (primary, secondary) => {
   return merged;
 };
 
-const drawDetections = (canvas, detections, showEmotionText) => {
+const buildFaceLabel = (item, settings) => {
+  const parts = [];
+
+  if (item.dominant) {
+    parts.push(item.dominant.label);
+  }
+
+  if (settings.showGender && item.genderLabel) {
+    parts.push(item.genderLabel);
+  }
+
+  if (settings.showAge && item.ageLabel) {
+    parts.push(item.ageLabel);
+  }
+
+  return parts.join(" • ") || "Лицо";
+};
+
+const applyCachedFaceAttributes = (detections, cache, settings) =>
+  detections.map((item) => {
+    const match = cache.find((cached) => getIoU(cached.detection.box, item.detection.box) > IOU_THRESHOLD);
+
+    const enriched = {
+      ...item,
+      gender: match?.gender ?? null,
+      genderLabel: match?.genderLabel ?? "",
+      genderScore: match?.genderScore ?? 0,
+      age: match?.age ?? null,
+      ageLabel: match?.ageLabel ?? "",
+    };
+
+    return {
+      ...enriched,
+      label: buildFaceLabel(enriched, settings),
+    };
+  });
+
+const drawFacePath = (ctx, points, closePath = false) => {
+  if (!points?.length) {
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  points.slice(1).forEach((point) => ctx.lineTo(point.x, point.y));
+  if (closePath) {
+    ctx.closePath();
+  }
+  ctx.stroke();
+};
+
+const drawFacePoints = (ctx, points) => {
+  points?.forEach((point, index) => {
+    const radius = index % 8 === 0 ? 2.2 : 1.4;
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+};
+
+const drawFallbackOutline = (ctx, box) => {
+  const centerX = box.x + box.width / 2;
+  const centerY = box.y + box.height / 2;
+  const radiusX = box.width * 0.38;
+  const radiusY = box.height * 0.48;
+
+  ctx.beginPath();
+  ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 3, 0, Math.PI * 2);
+  ctx.fill();
+};
+
+const drawEmotionBadge = (ctx, box, label) => {
+  ctx.font = "600 15px 'Gill Sans', sans-serif";
+  const textWidth = ctx.measureText(label).width;
+  const labelX = box.x;
+  const labelY = Math.max(24, box.y - 8);
+
+  ctx.fillStyle = "rgba(6, 12, 18, 0.82)";
+  ctx.fillRect(labelX - 6, labelY - 18, textWidth + 12, 24);
+
+  ctx.fillStyle = "#8dfbc7";
+  ctx.fillText(label, labelX, labelY);
+};
+
+const drawDetections = (canvas, detections, showText) => {
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     return;
   }
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = "#38f8ab";
+  ctx.fillStyle = "#8dfbc7";
+  ctx.lineWidth = 2;
 
   detections.forEach((item, index) => {
-    const { x, y, width, height } = item.detection.box;
-    const label = showEmotionText ? item.label || "Лицо" : `Лицо ${index + 1}`;
+    const box = item.detection.box;
+    const label = showText ? item.label || "Лицо" : `Лицо ${index + 1}`;
+    const jaw = item.landmarks?.getJawOutline?.();
+    const leftEye = item.landmarks?.getLeftEye?.();
+    const rightEye = item.landmarks?.getRightEye?.();
+    const nose = item.landmarks?.getNose?.();
+    const mouth = item.landmarks?.getMouth?.();
 
-    ctx.strokeStyle = "#38f8ab";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(x, y, width, height);
+    if (jaw?.length) {
+      drawFacePath(ctx, jaw, false);
+      drawFacePath(ctx, leftEye, true);
+      drawFacePath(ctx, rightEye, true);
+      drawFacePath(ctx, nose, false);
+      drawFacePath(ctx, mouth, true);
+      drawFacePoints(ctx, item.landmarks.positions);
+    } else {
+      drawFallbackOutline(ctx, box);
+    }
 
-    ctx.font = "600 15px 'Gill Sans', sans-serif";
-    const textWidth = ctx.measureText(label).width;
-    const labelX = x;
-    const labelY = Math.max(24, y - 8);
-
-    ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-    ctx.fillRect(labelX - 6, labelY - 18, textWidth + 12, 24);
-
-    ctx.fillStyle = "#8dfbc7";
-    ctx.fillText(label, labelX, labelY);
+    drawEmotionBadge(ctx, box, label);
   });
 };
 
@@ -148,12 +255,19 @@ const CameraPanel = () => {
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [modelsError, setModelsError] = useState("");
   const [ssdLoaded, setSsdLoaded] = useState(false);
+  const [landmarksLoaded, setLandmarksLoaded] = useState(false);
+  const [ageGenderLoaded, setAgeGenderLoaded] = useState(false);
   const [detectedFaces, setDetectedFaces] = useState([]);
   const [emotionError, setEmotionError] = useState("");
   const [detectorMode, setDetectorMode] = useState("fast");
+  const [perfStats, setPerfStats] = useState({ fps: 0, latency: 0 });
   const canvasRef = useRef(null);
   const missStreakRef = useRef(0);
   const cycleRef = useRef(0);
+  const perfRef = useRef({ lastCompletedAt: 0, fps: 0, latency: 0 });
+  const detectorModeRef = useRef("fast");
+  const perfUiUpdatedAtRef = useRef(0);
+  const faceAttributesCacheRef = useRef([]);
   const { videoRef, status, error, start, stop } = useCameraStream();
 
   useEffect(() => {
@@ -176,6 +290,7 @@ const CameraPanel = () => {
 
     const loadModels = async () => {
       setModelsError("");
+
       try {
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
@@ -184,21 +299,34 @@ const CameraPanel = () => {
 
         const warnings = [];
         let localSsdLoaded = false;
+        let localLandmarksLoaded = false;
+        let localAgeGenderLoaded = false;
 
         try {
           await faceapi.nets.ssdMobilenetv1.loadFromUri("/models");
           localSsdLoaded = true;
         } catch {
-          warnings.push("SSD модель не найдена.");
+          warnings.push("SSD-модель не найдена.");
         }
 
-        // try {
-        // } catch {
-        //   warnings.push("Модель возраста не найдена.");
-        // }
+        try {
+          await faceapi.nets.faceLandmark68TinyNet.loadFromUri("/models");
+          localLandmarksLoaded = true;
+        } catch {
+          warnings.push(LANDMARK_MODEL_MISSING_WARNING);
+        }
+
+        try {
+          await faceapi.nets.ageGenderNet.loadFromUri("/models");
+          localAgeGenderLoaded = true;
+        } catch {
+          warnings.push("Модель определения пола и возраста не найдена.");
+        }
 
         if (!cancelled) {
           setSsdLoaded(localSsdLoaded);
+          setLandmarksLoaded(localLandmarksLoaded);
+          setAgeGenderLoaded(localAgeGenderLoaded);
           if (warnings.length) {
             setModelsError(warnings.join(" "));
           }
@@ -227,6 +355,7 @@ const CameraPanel = () => {
       if (canvas) {
         clearCanvas(canvas);
       }
+      setPerfStats({ fps: 0, latency: 0 });
       return;
     }
 
@@ -277,26 +406,48 @@ const CameraPanel = () => {
     const profile = SENSITIVITY_PROFILES[sensitivityKey] || SENSITIVITY_PROFILES.balanced;
 
     const detect = async () => {
+      const startedAt = performance.now();
       const useFarMode = missStreakRef.current >= FAR_MODE_AFTER_MISSES;
       const tinyConfig = useFarMode ? profile.tinyFar : profile.tinyFast;
       const tinyOptions = new faceapi.TinyFaceDetectorOptions(tinyConfig);
       const runSsdThisCycle = ssdLoaded && (useFarMode || cycleRef.current % profile.ssdEvery === 0);
+      const shouldDrawOverlay = detectorSettings.drawBoxes;
+      const shouldRunLandmarks = landmarksLoaded && shouldDrawOverlay;
+      const wantsAgeGender = detectorSettings.showGender || detectorSettings.showAge;
+      const shouldRunAgeGender = ageGenderLoaded && wantsAgeGender && cycleRef.current % AGE_GENDER_EVERY === 0;
       cycleRef.current += 1;
 
-      setDetectorMode(useFarMode ? "far" : runSsdThisCycle ? "hybrid" : "fast");
+      const nextDetectorMode = useFarMode ? "far" : runSsdThisCycle ? "hybrid" : "fast";
+      if (detectorModeRef.current !== nextDetectorMode) {
+        detectorModeRef.current = nextDetectorMode;
+        setDetectorMode(nextDetectorMode);
+      }
 
       try {
-        const tinyTask = faceapi.detectAllFaces(video, tinyOptions).withFaceExpressions();
-        const tinyPromise = tinyTask;
+        let tinyTask = faceapi.detectAllFaces(video, tinyOptions);
+        if (shouldRunLandmarks) {
+          tinyTask = tinyTask.withFaceLandmarks(true);
+        }
+        tinyTask = tinyTask.withFaceExpressions();
+        if (shouldRunAgeGender) {
+          tinyTask = tinyTask.withAgeAndGender();
+        }
 
         const ssdPromise = runSsdThisCycle
           ? (() => {
-              const ssdTask = faceapi.detectAllFaces(video, SSD_OPTIONS).withFaceExpressions();
+              let ssdTask = faceapi.detectAllFaces(video, SSD_OPTIONS);
+              if (shouldRunLandmarks) {
+                ssdTask = ssdTask.withFaceLandmarks(true);
+              }
+              ssdTask = ssdTask.withFaceExpressions();
+              if (shouldRunAgeGender) {
+                ssdTask = ssdTask.withAgeAndGender();
+              }
               return ssdTask;
             })()
           : Promise.resolve([]);
 
-        const [tinyResults, ssdResults] = await Promise.all([tinyPromise, ssdPromise]);
+        const [tinyResults, ssdResults] = await Promise.all([tinyTask, ssdPromise]);
         if (!active) {
           return useFarMode;
         }
@@ -305,7 +456,7 @@ const CameraPanel = () => {
         if (!merged.length) {
           missStreakRef.current += 1;
           setDetectedFaces([]);
-          setEmotionError("Лица не найдены.");
+          setEmotionError("Лица не обнаружены.");
           clearCanvas(canvas);
           return useFarMode;
         }
@@ -314,17 +465,78 @@ const CameraPanel = () => {
 
         const displaySize = { width: canvas.width, height: canvas.height };
         const resized = faceapi.resizeResults(merged, displaySize);
-        const mappedDetections = merged.map((item, index) => {
+        const detectionsWithCoreData = resized.map((item) => {
           const dominant = getDominantEmotion(item.expressions);
-          const emotionLabel = dominant ? dominant.label : "Эмоция";
-          const label = emotionLabel;
+          const prepared = {
+            detection: item.detection,
+            landmarks: item.landmarks || null,
+            dominant,
+            gender: null,
+            genderLabel: "",
+            genderScore: 0,
+            age: null,
+            ageLabel: "",
+          };
 
           return {
-            detection: resized[index].detection,
-            dominant,
-            label,
+            ...prepared,
+            label: buildFaceLabel(prepared, detectorSettings),
           };
         });
+
+        const mappedDetections = shouldRunAgeGender
+          ? detectionsWithCoreData.map((item, index) => {
+              const resizedItem = resized[index];
+              const enriched = {
+                ...item,
+                gender: resizedItem.gender || null,
+                genderLabel: detectorSettings.showGender ? getGenderLabel(resizedItem.gender) : "",
+                genderScore:
+                  typeof resizedItem.genderProbability === "number" ? resizedItem.genderProbability : 0,
+                age: typeof resizedItem.age === "number" ? resizedItem.age : null,
+                ageLabel: detectorSettings.showAge ? getAgeLabel(resizedItem.age) : "",
+              };
+
+              return {
+                ...enriched,
+                label: buildFaceLabel(enriched, detectorSettings),
+              };
+            })
+          : applyCachedFaceAttributes(detectionsWithCoreData, faceAttributesCacheRef.current, detectorSettings);
+
+        if (shouldRunAgeGender) {
+          faceAttributesCacheRef.current = mappedDetections.map((item) => ({
+            detection: item.detection,
+            gender: item.gender,
+            genderLabel: detectorSettings.showGender ? item.genderLabel : "",
+            genderScore: item.genderScore,
+            age: item.age,
+            ageLabel: detectorSettings.showAge ? item.ageLabel : "",
+          }));
+        }
+
+        const endedAt = performance.now();
+        const latency = endedAt - startedAt;
+        const previousCompletedAt = perfRef.current.lastCompletedAt;
+        const instantFps = previousCompletedAt ? 1000 / Math.max(endedAt - previousCompletedAt, 1) : 0;
+        const smoothLatency = perfRef.current.latency
+          ? perfRef.current.latency * 0.7 + latency * 0.3
+          : latency;
+        const smoothFps = perfRef.current.fps ? perfRef.current.fps * 0.7 + instantFps * 0.3 : instantFps;
+
+        perfRef.current = {
+          lastCompletedAt: endedAt,
+          fps: smoothFps,
+          latency: smoothLatency,
+        };
+
+        if (endedAt - perfUiUpdatedAtRef.current >= PERF_UI_UPDATE_MS) {
+          perfUiUpdatedAtRef.current = endedAt;
+          setPerfStats({
+            fps: smoothFps,
+            latency: smoothLatency,
+          });
+        }
 
         setEmotionError("");
         setDetectedFaces(mappedDetections);
@@ -361,12 +573,17 @@ const CameraPanel = () => {
       active = false;
       missStreakRef.current = 0;
       cycleRef.current = 0;
+      faceAttributesCacheRef.current = [];
+      perfRef.current = { lastCompletedAt: 0, fps: 0, latency: 0 };
+      detectorModeRef.current = "fast";
+      perfUiUpdatedAtRef.current = 0;
+      setPerfStats({ fps: 0, latency: 0 });
       if (timerId) {
         window.clearTimeout(timerId);
       }
       clearCanvas(canvas);
     };
-  }, [modelsLoaded, status, videoRef, ssdLoaded, detectorSettings]);
+  }, [modelsLoaded, status, videoRef, ssdLoaded, landmarksLoaded, ageGenderLoaded, detectorSettings]);
 
   const handleTypeChange = (event) => {
     const nextSource = { ...source, type: event.target.value };
@@ -383,17 +600,27 @@ const CameraPanel = () => {
   const handleRestart = () => {
     missStreakRef.current = 0;
     cycleRef.current = 0;
+    faceAttributesCacheRef.current = [];
+    perfRef.current = { lastCompletedAt: 0, fps: 0, latency: 0 };
+    detectorModeRef.current = "fast";
+    perfUiUpdatedAtRef.current = 0;
     setDetectorMode("fast");
     setEmotionError("");
+    setPerfStats({ fps: 0, latency: 0 });
     start(source);
   };
 
   const handleStop = () => {
     missStreakRef.current = 0;
     cycleRef.current = 0;
+    faceAttributesCacheRef.current = [];
+    perfRef.current = { lastCompletedAt: 0, fps: 0, latency: 0 };
+    detectorModeRef.current = "fast";
+    perfUiUpdatedAtRef.current = 0;
     setDetectorMode("fast");
     setDetectedFaces([]);
     setEmotionError("");
+    setPerfStats({ fps: 0, latency: 0 });
     const canvas = canvasRef.current;
     if (canvas) {
       clearCanvas(canvas);
@@ -401,21 +628,14 @@ const CameraPanel = () => {
     stop();
   };
 
-  const emotionText = useMemo(() => {
+  const infoText = useMemo(() => {
     if (detectedFaces.length) {
-      if (!detectorSettings.showEmotionText) {
-        return `Лиц обнаружено: ${detectedFaces.length}`;
-      }
-
       const summary = detectedFaces
         .slice(0, 3)
-        .map((item) => {
-          const emotionLabel = item.dominant?.label || "Эмоция";
-          return emotionLabel;
-        })
+        .map((item) => buildFaceLabel(item, detectorSettings))
         .join(" | ");
 
-      return `Лиц: ${detectedFaces.length}. ${summary}`;
+      return summary ? `Лиц: ${detectedFaces.length}. ${summary}` : `Лиц обнаружено: ${detectedFaces.length}`;
     }
 
     if (emotionError) {
@@ -423,7 +643,7 @@ const CameraPanel = () => {
     }
 
     return "Ожидание распознавания...";
-  }, [detectedFaces, emotionError, detectorSettings.showEmotionText]);
+  }, [detectedFaces, emotionError, detectorSettings]);
 
   const sensitivityLabel =
     SENSITIVITY_PROFILES[detectorSettings.sensitivity]?.label || SENSITIVITY_PROFILES.balanced.label;
@@ -467,9 +687,7 @@ const CameraPanel = () => {
       </div>
 
       <div className="camera-panel__status">
-        <span>
-          Модели: {modelsLoaded ? "Загружены" : "Загрузка..."}
-        </span>
+        <span>Модели: {modelsLoaded ? "Загружены" : "Загрузка..."}</span>
         {modelsError && <span className="camera-panel__error">{modelsError}</span>}
       </div>
 
@@ -485,12 +703,22 @@ const CameraPanel = () => {
         </span>
       </div>
 
+      {detectorSettings.showPerformance && (
+        <div className="camera-panel__status camera-panel__status--metrics">
+          <span>FPS: {perfStats.fps ? perfStats.fps.toFixed(1) : "0.0"}</span>
+          <span>Задержка: {perfStats.latency ? `${Math.round(perfStats.latency)} мс` : "0 мс"}</span>
+          <span>Оверлей: {detectorSettings.drawBoxes ? "включён" : "выключен"}</span>
+          <span>Пол: {detectorSettings.showGender ? "включён" : "выключен"}</span>
+          <span>Возраст: {detectorSettings.showAge ? "включён" : "выключен"}</span>
+        </div>
+      )}
+
       <div className="camera-panel__video-wrap">
         <video ref={videoRef} autoPlay muted playsInline controls={source.type === "ip"} />
         <canvas ref={canvasRef} className="camera-panel__overlay-canvas" />
         {detectorSettings.showEmotionText && (
           <div className="camera-panel__emotion-overlay">
-            <span>Emotions: {emotionText}</span>
+            <span>{infoText}</span>
           </div>
         )}
       </div>
@@ -499,6 +727,3 @@ const CameraPanel = () => {
 };
 
 export default CameraPanel;
-
-
-
