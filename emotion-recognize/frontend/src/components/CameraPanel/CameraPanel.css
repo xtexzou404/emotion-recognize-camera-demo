@@ -74,9 +74,17 @@
 .camera-panel__status {
   margin-top: 12px;
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   font-size: 14px;
   color: var(--text-soft);
+}
+
+.camera-panel__status--metrics span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(7, 24, 44, 0.08);
+  border: 1px solid var(--line);
 }
 
 .camera-panel__error {
@@ -139,5 +147,9 @@
   .camera-panel__field,
   .camera-panel__field--wide {
     min-width: 100%;
+  }
+
+  .camera-panel__status--metrics span {
+    width: fit-content;
   }
 }
